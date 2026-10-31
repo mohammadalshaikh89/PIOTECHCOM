@@ -1372,14 +1372,19 @@ let cfgUnlocked = false;
 /* ------------------------------------------------------------------ Supabase (optional shared database + real sign-in)
    Fill url + anon key here for a deployed copy, or enter them from the sign-in screen («اتصال Supabase»).
    Leave empty to keep everything in this browser only. */
-const SB_CONF = {url: "", key: ""};
+const SB_CONF = {url: "https://dbwuzgeilukfgvvulbss.supabase.co", key: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRid3V6Z2VpbHVrZmd2dnVsYnNzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI0NzQ3NzUsImV4cCI6MjEwODA1MDc3NX0.C2_53H51OU1lzqFpATdtvMuzRvJ0OBSiTtOLeb7xeDY"};
 const SBC_KEY = "amlsa.sbconf", SBS_KEY = "amlsa.sbses";
 function sbConf(){ if (SB_CONF.url && SB_CONF.key) return {...SB_CONF, fixed:true}; try{ const c = JSON.parse(localStorage.getItem(SBC_KEY)||"null"); if (c && c.url && c.key) return c; }catch(e){} return null; }
 const SB_ON = () => !!sbConf();
 let SB_SES = (()=>{ try{ return JSON.parse(sessionStorage.getItem(SBS_KEY)||"null"); }catch(e){ return null; } })();
 let SB_HIST = [], SB_SET = {cfg:null, pwd:null}, SB_ERR = "";
 function sbSaveSes(s){ SB_SES = s; try{ s ? sessionStorage.setItem(SBS_KEY, JSON.stringify(s)) : sessionStorage.removeItem(SBS_KEY); }catch(e){} }
-const sbBase = () => sbConf().url.replace(/\/+$/,"");
+function sbNormUrl(u){ u = String(u||"").trim().replace(/\s+/g,"");
+  const m = u.match(/supabase\.com\/dashboard\/project\/([a-z0-9]+)/i); if (m) return `https://${m[1]}.supabase.co`;
+  if (/^[a-z0-9]{15,30}$/i.test(u)) return `https://${u}.supabase.co`;
+  if (!/^https?:\/\//i.test(u)) u = "https://"+u;
+  try{ const x = new URL(u); return `${x.protocol}//${x.host}`; }catch(e){ return u.replace(/\/+$/,""); } }
+const sbBase = () => sbNormUrl(sbConf().url);
 async function sbAuth(grant, body){
   const r = await fetch(`${sbBase()}/auth/v1/token?grant_type=${grant}`, {method:"POST", headers:{apikey:sbConf().key, "Content-Type":"application/json"}, body:JSON.stringify(body)});
   const j = await r.json().catch(()=>({}));
@@ -1790,7 +1795,7 @@ function showLogin(msg){
     <div class="lgtop"><span class="logo" role="img" aria-label="PIO-TECH"></span><span class="pio">BANKBI</span><span style="flex:1"></span><button class="lglang" data-lg="${en?"ar":"en"}">${en?"عربي":"English"}</button></div>
     <div class="lgmark"><b>AML 360</b><span>${L2("الفحص الشامل لنظام AML","Complete AML system check")}</span></div>
     <h2>${has?L2("تسجيل الدخول","Sign in"):L2("إنشاء كلمة مرور الدخول","Create a sign-in password")}</h2>
-    <p class="lead">${sbm?L2("ادخل بحسابك في Supabase.","Sign in with your Supabase account."):has?L2("أدخل كلمة المرور للمتابعة.","Enter the password to continue."):L2("أول استخدام على هذا المتصفح: أنشئ كلمة مرور (4 أحرف على الأقل).","First use on this browser: create a password (at least 4 characters).")}</p>
+    <p class="lead">${sbm?L2("أدخل البريد الإلكتروني وكلمة المرور.","Enter your email and password."):has?L2("أدخل كلمة المرور للمتابعة.","Enter the password to continue."):L2("أول استخدام على هذا المتصفح: أنشئ كلمة مرور (4 أحرف على الأقل).","First use on this browser: create a password (at least 4 characters).")}</p>
     ${sbm?`<input type="email" id="lgE" class="sq" dir="ltr" placeholder="${L2("البريد الإلكتروني","Email")}" autocomplete="username" value="${esc(SB_SES?.email||"")}">`:""}
     <input type="password" id="lg1" class="sq" placeholder="${L2("كلمة المرور","Password")}" autocomplete="current-password">
     ${has?"":`<input type="password" id="lg2" class="sq" placeholder="${L2("تأكيد كلمة المرور","Confirm password")}" autocomplete="new-password">`}
@@ -1798,13 +1803,13 @@ function showLogin(msg){
     <p class="msg err" id="lgMsg">${esc(msg||"")}</p>
     <div class="lgsb">${sbm?`<span class="sbdot"></span>${L2("متصل بقاعدة بيانات Supabase","Connected to Supabase")} · <span dir="ltr">${esc(host)}</span>${conf.fixed?"":` · <a id="sbEdit">${L2("تغيير","Change")}</a>`}`:`<a id="sbEdit">${L2("ربط بقاعدة بيانات Supabase","Connect a Supabase database")}</a>`}</div>
     <div id="sbBox"></div>
-    <div class="lgft">PIO-TECH · ${sbm?L2("الدخول وسجل الفحوصات والإعدادات محفوظة في Supabase","Sign-in, history and settings are stored in Supabase"):L2("كلمة المرور محفوظة في هذا المتصفح فقط","Password is stored in this browser only")}</div></div>`;
+    ${sbm?"":`<div class="lgft">${L2("كلمة المرور محفوظة في هذا المتصفح فقط","Password is stored in this browser only")}</div>`}</div>`;
   const m = $("#lgMsg");
   const go = async ()=>{ const a = $("#lg1").value; m.textContent = "";
     if (sbm){ const e = $("#lgE").value.trim(); if (!e || !a){ m.textContent = L2("أدخل البريد وكلمة المرور","Enter email and password"); return; }
       $("#lgGo").disabled = true; m.className = "msg"; m.textContent = L2("جارٍ الدخول…","Signing in…");
       try{ await sbLogin(e, a); await sbLoadAll(); m.textContent = ""; enter(); }
-      catch(er){ m.className = "msg err"; m.textContent = /invalid/i.test(er.message) ? L2("البريد أو كلمة المرور غير صحيحة","Wrong email or password") : /fetch|network/i.test(er.message) ? L2("تعذّر الاتصال بـ Supabase — تحقق من الرابط والشبكة","Could not reach Supabase — check the URL and network") : er.message; $("#lgGo").disabled = false; }
+      catch(er){ m.className = "msg err"; m.textContent = /invalid/i.test(er.message) ? L2("البريد أو كلمة المرور غير صحيحة","Wrong email or password") : /fetch|network|load failed/i.test(er.message) ? L2(`تعذّر الاتصال بـ ${sbBase()} — تحقق من الرابط والشبكة`,`Could not reach ${sbBase()} — check the URL and network`) : er.message; $("#lgGo").disabled = false; }
       return; }
     const st = loginGet();
     if (st){ if (await pwdHash("login::"+a)===st){ enter(); } else { m.textContent = L2("كلمة المرور غير صحيحة","Wrong password"); $("#lg1").value = ""; $("#lg1").focus(); } return; }
@@ -1815,7 +1820,7 @@ function showLogin(msg){
   const ed = $("#sbEdit"); if (ed) ed.onclick = ()=>{ const c = sbConf()||{url:"",key:""};
     $("#sbBox").innerHTML = `<div class="sbform"><input class="sq" id="sbU" dir="ltr" placeholder="Project URL · https://xxxx.supabase.co" value="${esc(c.url)}"><input class="sq" id="sbK" dir="ltr" placeholder="anon public key" value="${esc(c.key)}">
       <div class="row" style="gap:6px;flex-wrap:wrap"><button class="primary" id="sbSave">${L2("حفظ الاتصال","Save connection")}</button>${SB_ON()?`<button id="sbOff">${L2("فصل والعمل محلياً","Disconnect, work locally")}</button>`:""}</div></div>`;
-    $("#sbSave").onclick = ()=>{ const u = $("#sbU").value.trim(), k = $("#sbK").value.trim(); if (!/^https:\/\/.+/.test(u) || k.length<20){ m.textContent = L2("أدخل رابط المشروع ومفتاح anon","Enter the project URL and anon key"); return; }
+    $("#sbSave").onclick = ()=>{ const u = sbNormUrl($("#sbU").value), k = $("#sbK").value.trim().replace(/\s+/g,""); if (!/^https:\/\/.+/.test(u) || k.length<20){ m.textContent = L2("أدخل رابط المشروع ومفتاح anon","Enter the project URL and anon key"); return; }
       try{ localStorage.setItem(SBC_KEY, JSON.stringify({url:u, key:k})); }catch(e){} sbSaveSes(null); showLogin(); };
     const off = $("#sbOff"); if (off) off.onclick = ()=>{ try{ localStorage.removeItem(SBC_KEY); }catch(e){} sbSaveSes(null); SB_HIST = []; SB_SET = {cfg:null,pwd:null}; CFG_CACHE = null; showLogin(); }; };
   (sbm ? ($("#lgE").value ? $("#lg1") : $("#lgE")) : $("#lg1")).focus();
