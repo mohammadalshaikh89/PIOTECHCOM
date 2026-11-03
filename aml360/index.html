@@ -1454,7 +1454,7 @@ function sevTable(c){
       </tbody></table></div></details>`; }).join("");
   return `<div class="panel" style="margin-top:16px"><h3><small>Item classification</small>تصنيف البنود</h3>
     <p class="lead" style="font-size:12px;margin:6px 0 10px">اختر تصنيف كل بند عند ظهور مشكلة فيه: «خلل» أو «مراجعة» تُخصم من السكور، و«معلومة» تظهر بدون خصم. «تلقائي» يعني التصنيف الافتراضي حسب الفحص. البنود السليمة تبقى سليمة دائماً.</p>
-    <div class="row" style="gap:8px;margin-bottom:10px;flex-wrap:wrap"><input class="sq" id="sevQ" placeholder="بحث في البنود" style="flex:1;min-width:180px"><span class="muted" id="sevN">${keys.length} بند · ${set} مخصّص</span></div>
+    <div class="row" style="gap:8px;margin-bottom:10px;flex-wrap:wrap"><input class="sq" id="sevQ" type="search" name="aml-item-filter" autocomplete="off" data-lpignore="true" data-1p-ignore placeholder="بحث في البنود" style="flex:1;min-width:180px"><span class="muted" id="sevN">${keys.length} بند · ${set} مخصّص</span></div>
     ${keys.length ? sec : `<div class="empty">حمّل نتائج الفحص أولاً لعرض كل البنود.</div>`}</div>`;
 }
 function viewCfg(){
@@ -1495,7 +1495,9 @@ function bindCfg(){
     const sev = {}; document.querySelectorAll("[data-sev]").forEach(i=>{ if (i.value) sev[i.dataset.sev] = i.value; });
     m.className = "msg"; m.textContent = "جارٍ الحفظ…"; cfgRawSet({w, p, sev}).then(()=>{ CFG_CACHE = null; m.className = "msg"; m.textContent = "تم الحفظ"; }).catch(e=>{ m.className = "msg err"; m.textContent = "تعذّر الحفظ: "+(e.message||""); }); };
   const rs = $("#cfgReset"); if (rs) rs.onclick = async ()=>{ try{ await cfgRawSet(null); }catch(e){} CFG_CACHE = null; render(); const m = $("#cfgMsg"); if (m) m.textContent = "تم استرجاع الافتراضي"; };
-  const sq = $("#sevQ"); if (sq) sq.oninput = ()=>{ const v = sq.value.trim(); document.querySelectorAll(".sevt tbody tr:not(.grow)").forEach(tr=>tr.style.display = !v || tr.textContent.includes(v) ? "" : "none"); };
+  const sq = $("#sevQ"); if (sq){ const flt = ()=>{ const v = sq.value.trim().toLowerCase(); document.querySelectorAll(".sevt tbody").forEach(tb=>{ let grp = null, any = false; const fin = ()=>{ if (grp) grp.style.display = any || !v ? "" : "none"; };
+      [...tb.rows].forEach(tr=>{ if (tr.classList.contains("grow")){ fin(); grp = tr; any = false; return; } const ok = !v || tr.textContent.toLowerCase().includes(v); tr.style.display = ok ? "" : "none"; if (ok) any = true; }); fin(); }); };
+    sq.value = ""; sq.oninput = flt; sq.onsearch = flt; setTimeout(()=>{ if (sq.value && /@/.test(sq.value)){ sq.value = ""; } flt(); }, 400); }
   document.querySelectorAll("[data-sev]").forEach(i=>i.onchange = ()=>i.closest("tr").classList.toggle("sevset", !!i.value));
   const lk = $("#cfgLock"); if (lk) lk.onclick = ()=>{ cfgUnlocked = false; current = "home"; render(); };
   const np = $("#npGo"); if (np) np.onclick = async ()=>{ const a = $("#np1").value, b = $("#np2").value, m = $("#npMsg"); if (a.length<4){ m.className="msg err"; m.textContent = "4 أحرف على الأقل"; return; } if (a!==b){ m.className="msg err"; m.textContent = "غير متطابقتين"; return; } try{ await pwdSet(await pwdHash(a)); m.className="msg"; m.textContent = "تم تغيير كلمة المرور"; $("#np1").value=$("#np2").value=""; }catch(e){ m.className="msg err"; m.textContent = "تعذّر الحفظ"; } };
@@ -1809,7 +1811,7 @@ function showLogin(msg){
     if (sbm){ const e = $("#lgE").value.trim(); if (!e || !a){ m.textContent = L2("أدخل البريد وكلمة المرور","Enter email and password"); return; }
       $("#lgGo").disabled = true; m.className = "msg"; m.textContent = L2("جارٍ الدخول…","Signing in…");
       try{ await sbLogin(e, a); await sbLoadAll(); m.textContent = ""; enter(); }
-      catch(er){ m.className = "msg err"; m.textContent = /invalid/i.test(er.message) ? L2("البريد أو كلمة المرور غير صحيحة","Wrong email or password") : /fetch|network|load failed/i.test(er.message) ? L2(`تعذّر الاتصال بـ ${sbBase()} — تحقق من الرابط والشبكة`,`Could not reach ${sbBase()} — check the URL and network`) : er.message; $("#lgGo").disabled = false; }
+      catch(er){ m.className = "msg err"; m.textContent = /invalid login credentials/i.test(er.message) ? L2("البريد أو كلمة المرور غير صحيحة","Wrong email or password") + " · Invalid login credentials" : /fetch|network|load failed/i.test(er.message) ? L2(`تعذّر الاتصال بـ ${sbBase()} — تحقق من الرابط والشبكة`,`Could not reach ${sbBase()} — check the URL and network`) : "Supabase: " + er.message; $("#lgGo").disabled = false; }
       return; }
     const st = loginGet();
     if (st){ if (await pwdHash("login::"+a)===st){ enter(); } else { m.textContent = L2("كلمة المرور غير صحيحة","Wrong password"); $("#lg1").value = ""; $("#lg1").focus(); } return; }
